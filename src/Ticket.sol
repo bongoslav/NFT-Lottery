@@ -23,11 +23,16 @@
 pragma solidity 0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {WinnerPicker} from "./WinnerPicker.sol";
 
-// TODO: deploy script
 // TODO: select & reward winner
 // TODO: add NatSpec
 contract Ticket is ERC721 {
+    WinnerPicker public winnerPicker;
+
+    error Unauthorized();
+    error TransactionFailed();
+
     uint256 private constant SURPRISE_WINNER_REWARD_PERCENTAGE = 50;
     uint256 private constant TICKET_PRICE = 1 ether;
 
@@ -36,8 +41,7 @@ contract Ticket is ERC721 {
     uint256 public immutable purchaseStartTime;
     uint256 public immutable purchaseEndTime;
 
-    mapping(uint256 => address) public ticketOwners;
-    mapping(uint256 => uint256) public ticketPrices;
+    address[] private participants;
 
     uint256 public prizePool;
     address public winner;
@@ -56,17 +60,19 @@ contract Ticket is ERC721 {
         string memory name,
         string memory symbol,
         uint256 _purchaseStartTime,
-        uint256 _purchaseEndTime
+        uint256 _purchaseEndTime,
+        address _winnerPickerAddress
     ) ERC721(name, symbol) {
         purchaseStartTime = _purchaseStartTime;
         purchaseEndTime = _purchaseEndTime;
+        winnerPicker = WinnerPicker(_winnerPickerAddress);
     }
 
     function buyTicket() external payable onlyDuringPurchaseWindow {
         require(msg.value == TICKET_PRICE, "Not enough eth to buy a ticket");
 
         _tockenCounter++;
-				// @audit tokenURI instead of tokenId ?
+        // @audit tokenURI instead of tokenId ?
         uint256 tokenId = _tockenCounter;
         _safeMint(msg.sender, tokenId);
 
@@ -75,9 +81,14 @@ contract Ticket is ERC721 {
         emit TicketPurchased(tokenId, msg.sender);
     }
 
-    function pickRandomWinner() private view {}
+    function pickWinner() public returns (address) {
+        winner = winnerPicker.getWinner();
+        return winner;
+    }
 
     function rewardWinner() public payable {
-        // payable(winner).transfer(prizePool * SURPRISE_WINNER_REWARD_PERCENTAGE / 100, address(this));
+        if (msg.sender != winner) revert Unauthorized();
+        (bool success,) = msg.sender.call{value: prizePool}("");
+        if (!success) revert TransactionFailed();
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Ticket} from "../src/ticket/Ticket.sol";
+import {Ticket} from "../src/Ticket.sol";
 
 contract TicketTest is Test {
     Ticket public ticket;
